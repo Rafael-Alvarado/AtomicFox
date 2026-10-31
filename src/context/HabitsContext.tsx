@@ -17,6 +17,8 @@ interface HabitsContextData {
   userLevel: number;
   maxSlots: number;
   weeklyHistory: Record<string, number>;
+  isDarkMode: boolean; // 👈 Nuevo: Estado global del tema
+  toggleTheme: () => void; // 👈 Nuevo: Función para alternar el tema
   addHabit: (habit: Omit<Habit, 'id' | 'progress' | 'streak' | 'streakCount'>) => boolean;
   completeHabit: (id: string) => void;
 }
@@ -27,12 +29,26 @@ const STORAGE_KEY_HABITS = '@AtomicFox_habits';
 const STORAGE_KEY_LEVEL = '@AtomicFox_userLevel';
 const STORAGE_KEY_DATE = '@AtomicFox_lastDate';
 const STORAGE_KEY_HISTORY = '@AtomicFox_weeklyHistory';
+const STORAGE_KEY_THEME = '@AtomicFox_isDarkMode'; // 👈 Nueva llave para persistir el tema
 
 export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userLevel, setUserLevel] = useState(1);
   const maxSlots = userLevel === 1 ? 2 : 5;
   const [habits, setHabits] = useState<Habit[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<Record<string, number>>({});
+  
+  // --- ESTADO GLOBAL DE TEMA (Día 15) ---
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  const toggleTheme = async () => {
+    try {
+      const nextTheme = !isDarkMode;
+      setIsDarkMode(nextTheme);
+      await AsyncStorage.setItem(STORAGE_KEY_THEME, JSON.stringify(nextTheme));
+    } catch (error) {
+      console.error("Error al guardar el tema:", error);
+    }
+  };
 
   // Guardar el progreso promedio del día actual en el historial persistente
   const saveDailyProgressToHistory = async (currentHabits: Habit[], historyState: Record<string, number>) => {
@@ -62,11 +78,16 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const storedLevel = await AsyncStorage.getItem(STORAGE_KEY_LEVEL);
         const storedDate = await AsyncStorage.getItem(STORAGE_KEY_DATE);
         const storedHistory = await AsyncStorage.getItem(STORAGE_KEY_HISTORY);
+        const storedTheme = await AsyncStorage.getItem(STORAGE_KEY_THEME); // 👈 Cargar tema guardado
 
         const currentDate = new Date().toDateString();
 
         if (storedLevel) {
           setUserLevel(JSON.parse(storedLevel));
+        }
+
+        if (storedTheme !== null) {
+          setIsDarkMode(JSON.parse(storedTheme));
         }
 
         let loadedHistory: Record<string, number> = {};
@@ -177,7 +198,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <HabitsContext.Provider value={{ habits, userLevel, maxSlots, weeklyHistory, addHabit, completeHabit }}>
+    <HabitsContext.Provider value={{ habits, userLevel, maxSlots, weeklyHistory, isDarkMode, toggleTheme, addHabit, completeHabit }}>
       {children}
     </HabitsContext.Provider>
   );

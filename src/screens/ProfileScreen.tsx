@@ -4,27 +4,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
 
 export default function ProfileScreen() {
-  const { habits, userLevel, maxSlots } = useHabits();
+  const { habits, userLevel, maxSlots, isDarkMode } = useHabits(); // 👈 Añadido isDarkMode aquí
 
   const totalHabits = habits.length;
   const completedTodayCount = habits.filter(h => h.progress === 100).length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, !isDarkMode && styles.lightContainer]} contentContainerStyle={styles.contentContainer}>
       
       {/* Encabezado del Perfil */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mi Perfil</Text>
-        <Text style={styles.subtitle}>Información de tu cuenta y progreso</Text>
+        <Text style={[styles.title, !isDarkMode && styles.lightText]}>Mi Perfil</Text>
+        <Text style={[styles.subtitle, !isDarkMode && styles.lightSubtext]}>Información de tu cuenta y progreso</Text>
       </View>
 
       {/* Tarjeta de Avatar y Rango */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
+      <View style={[styles.profileCard, !isDarkMode && styles.lightCard]}>
+        <View style={[styles.avatarContainer, !isDarkMode && styles.lightAvatarContainer]}>
           <Ionicons name="paw" size={48} color="#ff6600" />
         </View>
-        <Text style={styles.userName}>Operador AtomicFox</Text>
-        <View style={styles.badgeContainer}>
+        <Text style={[styles.userName, !isDarkMode && styles.lightText]}>Operador AtomicFox</Text>
+        <View style={[styles.badgeContainer, !isDarkMode && styles.lightBadgeContainer]}>
           <Ionicons name="shield-checkmark" size={16} color="#38bdf8" />
           <Text style={styles.badgeText}>Nivel de Usuario: {userLevel}</Text>
         </View>
@@ -32,28 +32,28 @@ export default function ProfileScreen() {
 
       {/* Estadísticas de Cuenta */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Resumen de Actividad</Text>
+        <Text style={[styles.sectionTitle, !isDarkMode && styles.lightText]}>Resumen de Actividad</Text>
         
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, !isDarkMode && styles.lightCard]}>
           <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
+            <View style={[styles.infoIconContainer, !isDarkMode && styles.lightAvatarContainer]}>
               <Ionicons name="list-outline" size={20} color="#ff6600" />
             </View>
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>Hábitos Activos</Text>
-              <Text style={styles.infoValue}>{totalHabits} de {maxSlots} slots usados</Text>
+              <Text style={[styles.infoLabel, !isDarkMode && styles.lightSubtext]}>Hábitos Activos</Text>
+              <Text style={[styles.infoValue, !isDarkMode && styles.lightText]}>{totalHabits} de {maxSlots} slots usados</Text>
             </View>
           </View>
 
-          <View style={styles.separator} />
+          <View style={[styles.separator, !isDarkMode && styles.lightSeparator]} />
 
           <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
+            <View style={[styles.infoIconContainer, !isDarkMode && styles.lightAvatarContainer]}>
               <Ionicons name="checkbox-outline" size={20} color="#22c55e" />
             </View>
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>Completados Hoy</Text>
-              <Text style={styles.infoValue}>{completedTodayCount} hábitos al 100%</Text>
+              <Text style={[styles.infoLabel, !isDarkMode && styles.lightSubtext]}>Completados Hoy</Text>
+              <Text style={[styles.infoValue, !isDarkMode && styles.lightText]}>{completedTodayCount} hábitos al 100%</Text>
             </View>
           </View>
         </View>
@@ -61,17 +61,17 @@ export default function ProfileScreen() {
 
       {/* Opciones de la Cuenta */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Ajustes y Sistema</Text>
+        <Text style={[styles.sectionTitle, !isDarkMode && styles.lightText]}>Ajustes y Sistema</Text>
         
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={[styles.menuItem, !isDarkMode && styles.lightCard]}>
           <Ionicons name="person-outline" size={20} color="#94a3b8" />
-          <Text style={styles.menuText}>Editar Nombre de Usuario</Text>
+          <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Editar Nombre de Usuario</Text>
           <Ionicons name="chevron-forward" size={18} color="#64748b" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={[styles.menuItem, !isDarkMode && styles.lightCard]}>
           <Ionicons name="shield-outline" size={20} color="#94a3b8" />
-          <Text style={styles.menuText}>Privacidad y Datos</Text>
+          <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Privacidad y Datos</Text>
           <Ionicons name="chevron-forward" size={18} color="#64748b" />
         </TouchableOpacity>
       </View>
@@ -84,6 +84,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  lightContainer: {
+    backgroundColor: '#f8fafc',
   },
   contentContainer: {
     padding: 24,
@@ -103,6 +106,12 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 4,
   },
+  lightText: {
+    color: '#0f172a',
+  },
+  lightSubtext: {
+    color: '#64748b',
+  },
   profileCard: {
     backgroundColor: '#1e293b',
     borderRadius: 20,
@@ -111,6 +120,10 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  lightCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
   },
   avatarContainer: {
     width: 80,
@@ -122,6 +135,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 2,
     borderColor: '#ff6600',
+  },
+  lightAvatarContainer: {
+    backgroundColor: '#f1f5f9',
   },
   userName: {
     fontSize: 20,
@@ -136,6 +152,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+  },
+  lightBadgeContainer: {
+    backgroundColor: '#f1f5f9',
   },
   badgeText: {
     fontSize: 12,
@@ -190,6 +209,9 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#334155',
     marginVertical: 8,
+  },
+  lightSeparator: {
+    backgroundColor: '#e2e8f0',
   },
   menuItem: {
     flexDirection: 'row',

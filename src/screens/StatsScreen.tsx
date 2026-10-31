@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
 
 export default function StatsScreen() {
-  const { habits, userLevel, maxSlots, weeklyHistory } = useHabits();
+  const { habits, userLevel, maxSlots, weeklyHistory, isDarkMode } = useHabits(); // 👈 Añadido isDarkMode aquí
 
   // --- CÁLCULOS ESTADÍSTICOS (DÍA 11) ---
   const totalHabits = habits.length;
@@ -69,13 +69,13 @@ export default function StatsScreen() {
       const dateObj = new Date(year, month, day);
       const dateKey = dateObj.toDateString();
       
-      // Comparamos fecha exacta sin horas para el "hoy" (Corregido con ===)
+      // Comparamos fecha exacta sin horas para el "hoy"
       const isToday = dateObj.toDateString() === today.toDateString();
 
       const progress = isToday ? averageProgress : (weeklyHistory[dateKey] || 0);
 
       // Asignación de colores según el mapa de calor (Día 13)
-      let statusColor = '#334155'; // Por defecto / sin datos o futuro
+      let statusColor = isDarkMode ? '#334155' : '#cbd5e1'; // Color por defecto según el tema
       if (progress === 100) {
         statusColor = '#22c55e'; // 🟢 Verde = cumplido
       } else if (progress > 0) {
@@ -99,49 +99,49 @@ export default function StatsScreen() {
   const monthDays = getMonthDaysData();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, !isDarkMode && styles.lightContainer]} contentContainerStyle={styles.contentContainer}>
       
       {/* Encabezado */}
       <View style={styles.header}>
-        <Text style={styles.title}>Estadísticas Diarias</Text>
-        <Text style={styles.subtitle}>Tu rendimiento y constancia en AtomicFox</Text>
+        <Text style={[styles.title, !isDarkMode && styles.lightText]}>Estadísticas Diarias</Text>
+        <Text style={[styles.subtitle, !isDarkMode && styles.lightSubtext]}>Tu rendimiento y constancia en AtomicFox</Text>
       </View>
 
       {/* Tarjeta Principal de Progreso General */}
-      <View style={styles.cardMain}>
+      <View style={[styles.cardMain, !isDarkMode && styles.lightCard]}>
         <Ionicons name="flame" size={36} color="#ff6600" />
-        <Text style={styles.mainCardTitle}>Cumplimiento de Hoy</Text>
+        <Text style={[styles.mainCardTitle, !isDarkMode && styles.lightSubtext]}>Cumplimiento de Hoy</Text>
         <Text style={styles.mainCardValue}>{averageProgress}%</Text>
-        <View style={styles.progressBarBackground}>
+        <View style={[styles.progressBarBackground, !isDarkMode && styles.lightProgressBarBackground]}>
           <View style={[styles.progressBarFill, { width: `${averageProgress}%` }]} />
         </View>
-        <Text style={styles.mainCardSubtext}>
+        <Text style={[styles.mainCardSubtext, !isDarkMode && styles.lightSubtext]}>
           {completedTodayCount} de {totalHabits} hábitos completados hoy
         </Text>
       </View>
 
       {/* Fila de Métricas Secundarias */}
       <View style={styles.rowContainer}>
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, !isDarkMode && styles.lightCard]}>
           <Ionicons name="layers-outline" size={24} color="#38bdf8" />
-          <Text style={styles.statLabel}>Slots Usados</Text>
-          <Text style={styles.statValue}>{totalHabits} / {maxSlots}</Text>
-          <Text style={styles.statSubtext}>Nivel actual: {userLevel}</Text>
+          <Text style={[styles.statLabel, !isDarkMode && styles.lightSubtext]}>Slots Usados</Text>
+          <Text style={[styles.statValue, !isDarkMode && styles.lightText]}>{totalHabits} / {maxSlots}</Text>
+          <Text style={[styles.statSubtext, !isDarkMode && styles.lightSubtext]}>Nivel actual: {userLevel}</Text>
         </View>
 
-        <View style={styles.statCard}>
+        <View style={[styles.statCard, !isDarkMode && styles.lightCard]}>
           <Ionicons name="trophy-outline" size={24} color="#c084fc" />
-          <Text style={styles.statLabel}>Mejor Racha</Text>
-          <Text style={styles.statValue}>🔥 {maxStreakCount}</Text>
-          <Text style={styles.statSubtext}>Días consecutivos</Text>
+          <Text style={[styles.statLabel, !isDarkMode && styles.lightSubtext]}>Mejor Racha</Text>
+          <Text style={[styles.statValue, !isDarkMode && styles.lightText]}>🔥 {maxStreakCount}</Text>
+          <Text style={[styles.statSubtext, !isDarkMode && styles.lightSubtext]}>Días consecutivos</Text>
         </View>
       </View>
 
       {/* Gráfico de Barras Semanal Real */}
-      <View style={styles.weeklyCard}>
+      <View style={[styles.weeklyCard, !isDarkMode && styles.lightCard]}>
         <View style={styles.weeklyHeader}>
           <Ionicons name="bar-chart-outline" size={20} color="#ff6600" />
-          <Text style={styles.weeklyTitle}>Volumen Semanal (Lun - Dom)</Text>
+          <Text style={[styles.weeklyTitle, !isDarkMode && styles.lightText]}>Volumen Semanal (Lun - Dom)</Text>
         </View>
         
         <View style={styles.chartContainer}>
@@ -150,21 +150,21 @@ export default function StatsScreen() {
 
             return (
               <View key={index} style={styles.barColumn}>
-                <Text style={styles.barPercentageText}>{item.progress}%</Text>
+                <Text style={[styles.barPercentageText, !isDarkMode && styles.lightSubtext]}>{item.progress}%</Text>
                 
-                <View style={styles.barBackground}>
+                <View style={[styles.barBackground, !isDarkMode && styles.lightBarBackground]}>
                   <View 
                     style={[
                       styles.barFill, 
                       { 
                         height: barHeight > 0 ? barHeight : 4, 
-                        backgroundColor: item.isToday ? '#ff6600' : '#334155' 
+                        backgroundColor: item.isToday ? '#ff6600' : (isDarkMode ? '#334155' : '#cbd5e1') 
                       }
                     ]} 
                   />
                 </View>
 
-                <Text style={[styles.barDayText, item.isToday && styles.todayText]}>
+                <Text style={[styles.barDayText, item.isToday && styles.todayText, !isDarkMode && !item.isToday && { color: '#64748b' }]}>
                   {item.day}
                 </Text>
               </View>
@@ -174,24 +174,24 @@ export default function StatsScreen() {
       </View>
 
       {/* Matriz Mensual de Puntos / Mapa de Calor (Día 13) */}
-      <View style={styles.monthlyCard}>
+      <View style={[styles.monthlyCard, !isDarkMode && styles.lightCard]}>
         <View style={styles.weeklyHeader}>
           <Ionicons name="calendar-outline" size={20} color="#22c55e" />
-          <Text style={styles.weeklyTitle}>Tus habitos mensuales</Text>
+          <Text style={[styles.weeklyTitle, !isDarkMode && styles.lightText]}>Tus habitos mensuales</Text>
         </View>
 
-        <View style={styles.legendContainer}>
+        <View style={[styles.legendContainer, !isDarkMode && styles.lightLegendContainer]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#22c55e' }]} />
-            <Text style={styles.legendText}>Cumplido</Text>
+            <Text style={[styles.legendText, !isDarkMode && styles.lightSubtext]}>Cumplido</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-            <Text style={styles.legendText}>Parcial</Text>
+            <Text style={[styles.legendText, !isDarkMode && styles.lightSubtext]}>Parcial</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-            <Text style={styles.legendText}>Fallido</Text>
+            <Text style={[styles.legendText, !isDarkMode && styles.lightSubtext]}>Fallido</Text>
           </View>
         </View>
 
@@ -202,7 +202,7 @@ export default function StatsScreen() {
               style={[
                 styles.matrixCell, 
                 { backgroundColor: item.statusColor },
-                item.isToday && styles.matrixCellToday
+                item.isToday && (isDarkMode ? styles.matrixCellToday : styles.lightMatrixCellToday)
               ]}
             >
               <Text style={styles.matrixCellText}>{item.day}</Text>
@@ -219,6 +219,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  lightContainer: {
+    backgroundColor: '#f8fafc',
   },
   contentContainer: {
     padding: 24,
@@ -238,6 +241,12 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 4,
   },
+  lightText: {
+    color: '#0f172a',
+  },
+  lightSubtext: {
+    color: '#64748b',
+  },
   cardMain: {
     backgroundColor: '#1e293b',
     borderRadius: 20,
@@ -246,6 +255,10 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  lightCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
   },
   mainCardTitle: {
     fontSize: 14,
@@ -265,6 +278,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     marginVertical: 12,
+  },
+  lightProgressBarBackground: {
+    backgroundColor: '#e2e8f0',
   },
   progressBarFill: {
     height: '100%',
@@ -350,6 +366,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
+  lightBarBackground: {
+    backgroundColor: '#f1f5f9',
+  },
   barFill: {
     width: '100%',
     borderRadius: 6,
@@ -377,6 +396,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 8,
     borderRadius: 10,
+  },
+  lightLegendContainer: {
+    backgroundColor: '#f1f5f9',
   },
   legendItem: {
     flexDirection: 'row',
@@ -408,6 +430,10 @@ const styles = StyleSheet.create({
   matrixCellToday: {
     borderWidth: 2,
     borderColor: '#ffffff',
+  },
+  lightMatrixCellToday: {
+    borderWidth: 2,
+    borderColor: '#0f172a',
   },
   matrixCellText: {
     fontSize: 12,

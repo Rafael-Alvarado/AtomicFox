@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useHabits } from '../context/HabitsContext'; // 👈 Importamos el hook global
 
 import HabitsScreen from '../screens/HabitsScreen';
 import StatsScreen from '../screens/StatsScreen';
@@ -11,19 +12,21 @@ import ProfileScreen from '../screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 export default function AppNavigator() {
+  const { isDarkMode } = useHabits(); // 👈 Extraemos el estado global del tema
+
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: '#0f172a', // Fondo oscuro de la barra
-            borderTopColor: '#1e293b',
+            backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', // 👈 Dinámico según el tema
+            borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0',     // 👈 Borde dinámico
             height: 60,
             paddingBottom: 8,
           },
           tabBarActiveTintColor: '#ff6600', // Naranja AtomicFox
-          tabBarInactiveTintColor: '#64748b',
+          tabBarInactiveTintColor: isDarkMode ? '#64748b' : '#94a3b8',
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: keyof typeof Ionicons.glyphMap = 'list';
 

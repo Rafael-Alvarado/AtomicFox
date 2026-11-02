@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useHabits } from '../context/HabitsContext'; // 👈 Importamos el hook global
+import { useHabits } from '../context/HabitsContext'; 
 
 import HabitsScreen from '../screens/HabitsScreen';
 import StatsScreen from '../screens/StatsScreen';
@@ -11,8 +11,12 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function AppNavigator() {
-  const { isDarkMode } = useHabits(); // 👈 Extraemos el estado global del tema
+interface AppNavigatorProps {
+  session: any;
+}
+
+export default function AppNavigator({ session }: AppNavigatorProps) {
+  const { isDarkMode } = useHabits(); 
 
   return (
     <NavigationContainer>
@@ -20,12 +24,12 @@ export default function AppNavigator() {
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', // 👈 Dinámico según el tema
-            borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0',     // 👈 Borde dinámico
+            backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', 
+            borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0',    
             height: 60,
             paddingBottom: 8,
           },
-          tabBarActiveTintColor: '#ff6600', // Naranja AtomicFox
+          tabBarActiveTintColor: '#ff6600', 
           tabBarInactiveTintColor: isDarkMode ? '#64748b' : '#94a3b8',
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: keyof typeof Ionicons.glyphMap = 'list';
@@ -44,10 +48,25 @@ export default function AppNavigator() {
           },
         })}
       >
-        <Tab.Screen name="Mis Hábitos" component={HabitsScreen} />
-        <Tab.Screen name="Estadísticas" component={StatsScreen} />
-        <Tab.Screen name="Configuración" component={SettingsScreen} />
-        <Tab.Screen name="Mi Perfil" component={ProfileScreen} />
+        {/* 1. Mis Hábitos con sesión */}
+        <Tab.Screen name="Mis Hábitos">
+          {(props) => <HabitsScreen {...props} session={session} />}
+        </Tab.Screen>
+        
+        {/* 2. Estadísticas con sesión */}
+        <Tab.Screen name="Estadísticas">
+          {(props) => <StatsScreen {...props} session={session} />}
+        </Tab.Screen>
+        
+        {/* 3. Configuración con sesión */}
+        <Tab.Screen name="Configuración">
+          {(props) => <SettingsScreen {...props} session={session} />}
+        </Tab.Screen>
+        
+        {/* 4. Mi Perfil con sesión */}
+        <Tab.Screen name="Mi Perfil">
+          {(props) => <ProfileScreen {...props} session={session} />}
+        </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
   );

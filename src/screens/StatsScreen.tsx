@@ -3,10 +3,15 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
 
-export default function StatsScreen() {
-  const { habits, userLevel, maxSlots, weeklyHistory, isDarkMode } = useHabits(); // 👈 Añadido isDarkMode aquí
+// 1. Definimos la interfaz para aceptar la sesión
+interface StatsScreenProps {
+  session: any;
+  [key: string]: any;
+}
 
-  // --- CÁLCULOS ESTADÍSTICOS (DÍA 11) ---
+export default function StatsScreen({ session }: StatsScreenProps) {
+  const { habits = [], userLevel = 1, maxSlots = 3, weeklyHistory = {}, isDarkMode } = useHabits();
+
   const totalHabits = habits.length;
   
   const averageProgress = totalHabits > 0 
@@ -14,20 +19,16 @@ export default function StatsScreen() {
     : 0;
   
   const maxStreakCount = totalHabits > 0 
-    ? Math.max(...habits.map(h => h.streakCount), 0) 
+    ? Math.max(...habits.map(h => h.streakCount || 0), 0) 
     : 0;
 
   const completedTodayCount = habits.filter(h => h.progress === 100).length;
 
-  // --- CONSTRUCCIÓN DEL GRÁFICO SEMANAL REAL (DÍA 12) ---
   const getWeekDaysData = () => {
     const today = new Date();
-    const currentDayOfWeek = today.getDay(); // 0: Domingo, 1: Lunes, ..., 6: Sábado
-    
-    // Mapeo exacto para que Lun = 0, Mar = 1, ..., Dom = 6
+    const currentDayOfWeek = today.getDay(); 
     const adjustedTodayIndex = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
 
-    // Calcular la fecha del Lunes de esta semana para buscar en el historial
     const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
     const monday = new Date(today);
     monday.setDate(today.getDate() + distanceToMonday);
@@ -39,11 +40,8 @@ export default function StatsScreen() {
       dayDate.setDate(monday.getDate() + index);
 
       const dateKey = dayDate.toDateString();
-      
-      // Determinamos si este índice de la barra es el día de hoy
       const isToday = index === adjustedTodayIndex;
 
-      // Si es hoy, muestra el progreso dinámico actual; si es otro día, busca en el historial guardado
       const dayProgress = isToday 
         ? averageProgress 
         : (weeklyHistory[dateKey] || 0);
@@ -56,7 +54,6 @@ export default function StatsScreen() {
     });
   };
 
-  // --- CONSTRUCCIÓN DE LA MATRIZ MENSUAL (DÍA 13) ---
   const getMonthDaysData = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -69,19 +66,16 @@ export default function StatsScreen() {
       const dateObj = new Date(year, month, day);
       const dateKey = dateObj.toDateString();
       
-      // Comparamos fecha exacta sin horas para el "hoy"
       const isToday = dateObj.toDateString() === today.toDateString();
-
       const progress = isToday ? averageProgress : (weeklyHistory[dateKey] || 0);
 
-      // Asignación de colores según el mapa de calor (Día 13)
-      let statusColor = isDarkMode ? '#334155' : '#cbd5e1'; // Color por defecto según el tema
+      let statusColor = isDarkMode ? '#334155' : '#cbd5e1'; 
       if (progress === 100) {
-        statusColor = '#22c55e'; // 🟢 Verde = cumplido
+        statusColor = '#22c55e'; 
       } else if (progress > 0) {
-        statusColor = '#f59e0b'; // 🟡 Amarillo/Naranja = parcial
+        statusColor = '#f59e0b'; 
       } else if (dateObj < today && !isToday) {
-        statusColor = '#ef4444'; // 🔴 Rojo = no realizado en días pasados
+        statusColor = '#ef4444'; 
       }
 
       monthDays.push({
@@ -173,7 +167,7 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      {/* Matriz Mensual de Puntos / Mapa de Calor (Día 13) */}
+      {/* Matriz Mensual de Puntos / Mapa de Calor */}
       <View style={[styles.monthlyCard, !isDarkMode && styles.lightCard]}>
         <View style={styles.weeklyHeader}>
           <Ionicons name="calendar-outline" size={20} color="#22c55e" />
@@ -216,228 +210,47 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  lightContainer: {
-    backgroundColor: '#f8fafc',
-  },
-  contentContainer: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  lightText: {
-    color: '#0f172a',
-  },
-  lightSubtext: {
-    color: '#64748b',
-  },
-  cardMain: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  lightCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-  },
-  mainCardTitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 12,
-  },
-  mainCardValue: {
-    fontSize: 38,
-    fontWeight: 'bold',
-    color: '#ff6600',
-    marginVertical: 4,
-  },
-  progressBarBackground: {
-    width: '100%',
-    height: 8,
-    backgroundColor: '#334155',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginVertical: 12,
-  },
-  lightProgressBarBackground: {
-    backgroundColor: '#e2e8f0',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#ff6600',
-    borderRadius: 4,
-  },
-  mainCardSubtext: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginVertical: 4,
-  },
-  statSubtext: {
-    fontSize: 10,
-    color: '#64748b',
-  },
-  weeklyCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 20,
-  },
-  weeklyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  weeklyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
-    marginLeft: 8,
-  },
-  chartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 160,
-    paddingTop: 10,
-  },
-  barColumn: {
-    flex: 1,
-    alignItems: 'center',
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-  barPercentageText: {
-    fontSize: 9,
-    color: '#94a3b8',
-    marginBottom: 4,
-  },
-  barBackground: {
-    width: 12,
-    height: 110,
-    backgroundColor: '#0f172a',
-    borderRadius: 6,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  lightBarBackground: {
-    backgroundColor: '#f1f5f9',
-  },
-  barFill: {
-    width: '100%',
-    borderRadius: 6,
-  },
-  barDayText: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 8,
-  },
-  todayText: {
-    color: '#ff6600',
-    fontWeight: 'bold',
-  },
-  monthlyCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  legendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-    backgroundColor: '#0f172a',
-    padding: 8,
-    borderRadius: 10,
-  },
-  lightLegendContainer: {
-    backgroundColor: '#f1f5f9',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  matrixGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'flex-start',
-  },
-  matrixCell: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  matrixCellToday: {
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  lightMatrixCellToday: {
-    borderWidth: 2,
-    borderColor: '#0f172a',
-  },
-  matrixCellText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: 'white',
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  lightContainer: { backgroundColor: '#f8fafc' },
+  contentContainer: { padding: 24, paddingTop: 60, paddingBottom: 40 },
+  header: { marginBottom: 24 },
+  title: { fontSize: 26, fontWeight: 'bold', color: 'white' },
+  subtitle: { fontSize: 14, color: '#94a3b8', marginTop: 4 },
+  lightText: { color: '#0f172a' },
+  lightSubtext: { color: '#64748b' },
+  cardMain: { backgroundColor: '#1e293b', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: '#334155', alignItems: 'center', marginBottom: 20 },
+  lightCard: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
+  mainCardTitle: { fontSize: 14, color: '#94a3b8', marginTop: 12 },
+  mainCardValue: { fontSize: 38, fontWeight: 'bold', color: '#ff6600', marginVertical: 4 },
+  progressBarBackground: { width: '100%', height: 8, backgroundColor: '#334155', borderRadius: 4, overflow: 'hidden', marginVertical: 12 },
+  lightProgressBarBackground: { backgroundColor: '#e2e8f0' },
+  progressBarFill: { height: '100%', backgroundColor: '#ff6600', borderRadius: 4 },
+  mainCardSubtext: { fontSize: 12, color: '#64748b' },
+  rowContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  statCard: { flex: 1, backgroundColor: '#1e293b', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#334155', marginHorizontal: 4, alignItems: 'center' },
+  statLabel: { fontSize: 12, color: '#94a3b8', marginTop: 8 },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: 'white', marginVertical: 4 },
+  statSubtext: { fontSize: 10, color: '#64748b' },
+  weeklyCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#334155', marginBottom: 20 },
+  weeklyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  weeklyTitle: { fontSize: 16, fontWeight: 'bold', color: 'white', marginLeft: 8 },
+  chartContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 160, paddingTop: 10 },
+  barColumn: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
+  barPercentageText: { fontSize: 9, color: '#94a3b8', marginBottom: 4 },
+  barBackground: { width: 12, height: 110, backgroundColor: '#0f172a', borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden' },
+  lightBarBackground: { backgroundColor: '#f1f5f9' },
+  barFill: { width: '100%', borderRadius: 6 },
+  barDayText: { fontSize: 11, color: '#64748b', marginTop: 8 },
+  todayText: { color: '#ff6600', fontWeight: 'bold' },
+  monthlyCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#334155' },
+  legendContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16, backgroundColor: '#0f172a', padding: 8, borderRadius: 10 },
+  lightLegendContainer: { backgroundColor: '#f1f5f9' },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
+  legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  legendText: { fontSize: 11, color: '#94a3b8' },
+  matrixGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' },
+  matrixCell: { width: 38, height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  matrixCellToday: { borderWidth: 2, borderColor: '#ffffff' },
+  lightMatrixCellToday: { borderWidth: 2, borderColor: '#0f172a' },
+  matrixCellText: { fontSize: 12, fontWeight: 'bold', color: 'white' },
 });

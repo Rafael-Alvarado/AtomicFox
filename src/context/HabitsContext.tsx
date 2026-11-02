@@ -9,16 +9,17 @@ export interface Habit {
   time: string;
   progress: number;
   streak: string;
-  streakCount: number;
+  streakCount?: number; // 👈 Opcional
 }
 
 interface HabitsContextData {
   habits: Habit[];
+  setHabits: React.Dispatch<React.SetStateAction<Habit[]>>; 
   userLevel: number;
   maxSlots: number;
   weeklyHistory: Record<string, number>;
-  isDarkMode: boolean; // 👈 Nuevo: Estado global del tema
-  toggleTheme: () => void; // 👈 Nuevo: Función para alternar el tema
+  isDarkMode: boolean; 
+  toggleTheme: () => void; 
   addHabit: (habit: Omit<Habit, 'id' | 'progress' | 'streak' | 'streakCount'>) => boolean;
   completeHabit: (id: string) => void;
 }
@@ -29,7 +30,7 @@ const STORAGE_KEY_HABITS = '@AtomicFox_habits';
 const STORAGE_KEY_LEVEL = '@AtomicFox_userLevel';
 const STORAGE_KEY_DATE = '@AtomicFox_lastDate';
 const STORAGE_KEY_HISTORY = '@AtomicFox_weeklyHistory';
-const STORAGE_KEY_THEME = '@AtomicFox_isDarkMode'; // 👈 Nueva llave para persistir el tema
+const STORAGE_KEY_THEME = '@AtomicFox_isDarkMode';
 
 export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userLevel, setUserLevel] = useState(1);
@@ -37,7 +38,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [habits, setHabits] = useState<Habit[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<Record<string, number>>({});
   
-  // --- ESTADO GLOBAL DE TEMA (Día 15) ---
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   const toggleTheme = async () => {
@@ -50,7 +50,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Guardar el progreso promedio del día actual en el historial persistente
   const saveDailyProgressToHistory = async (currentHabits: Habit[], historyState: Record<string, number>) => {
     if (currentHabits.length === 0) return;
     
@@ -70,7 +69,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Cargar datos al iniciar la app
   useEffect(() => {
     const loadStoredData = async () => {
       try {
@@ -78,7 +76,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const storedLevel = await AsyncStorage.getItem(STORAGE_KEY_LEVEL);
         const storedDate = await AsyncStorage.getItem(STORAGE_KEY_DATE);
         const storedHistory = await AsyncStorage.getItem(STORAGE_KEY_HISTORY);
-        const storedTheme = await AsyncStorage.getItem(STORAGE_KEY_THEME); // 👈 Cargar tema guardado
+        const storedTheme = await AsyncStorage.getItem(STORAGE_KEY_THEME);
 
         const currentDate = new Date().toDateString();
 
@@ -90,16 +88,13 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setIsDarkMode(JSON.parse(storedTheme));
         }
 
-        let loadedHistory: Record<string, number> = {};
         if (storedHistory) {
-          loadedHistory = JSON.parse(storedHistory);
-          setWeeklyHistory(loadedHistory);
+          setWeeklyHistory(JSON.parse(storedHistory));
         }
 
         if (storedHabits) {
           let parsedHabits: Habit[] = JSON.parse(storedHabits);
 
-          // Reinicio diario si cambia la fecha
           if (storedDate !== currentDate) {
             parsedHabits = parsedHabits.map((habit) => ({
               ...habit,
@@ -110,21 +105,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           setHabits(parsedHabits);
         } else {
-          // Hábito por defecto inicial
-          const initialHabits = [
-            {
-              id: '1',
-              name: 'Meditación matutina',
-              identity: 'Persona serena y enfocada',
-              twoMinute: '10 mins de respiración',
-              time: '6:30 AM',
-              progress: 0,
-              streak: '0/7 días',
-              streakCount: 0,
-            }
-          ];
-          setHabits(initialHabits);
-          await AsyncStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(initialHabits));
+          setHabits([]);
           await AsyncStorage.setItem(STORAGE_KEY_DATE, currentDate);
         }
       } catch (error) {
@@ -135,7 +116,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     loadStoredData();
   }, []);
 
-  // Guardar hábitos y nivel en el storage local
   useEffect(() => {
     const saveData = async () => {
       try {
@@ -176,7 +156,8 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (habit.id === id) {
           if (habit.progress === 100) return habit;
 
-          const nextStreakCount = habit.streakCount + 1;
+          // 🦊 Protegemos la suma por si streakCount es undefined
+          const nextStreakCount = (habit.streakCount || 0) + 1;
           return {
             ...habit,
             progress: 100,
@@ -187,7 +168,8 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return habit;
       });
 
-      const maxStreak = Math.max(...updatedHabits.map((h) => h.streakCount), 0);
+      // 🦊 Protegemos la lectura de streakCount en Math.max
+      const maxStreak = Math.max(...updatedHabits.map((h) => h.streakCount || 0), 0);
       if (maxStreak >= 7 && userLevel < 2) {
         setUserLevel(2);
       }
@@ -198,7 +180,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <HabitsContext.Provider value={{ habits, userLevel, maxSlots, weeklyHistory, isDarkMode, toggleTheme, addHabit, completeHabit }}>
+    <HabitsContext.Provider value={{ habits, setHabits, userLevel, maxSlots, weeklyHistory, isDarkMode, toggleTheme, addHabit, completeHabit }}>
       {children}
     </HabitsContext.Provider>
   );

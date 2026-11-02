@@ -1,18 +1,26 @@
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-// Configurar cómo se comportan las notificaciones cuando la app está abierta
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Configurar cómo se comportan las notificaciones cuando la app está abierta (solo si no es web)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // 1. Solicitar permisos al usuario
 export async function registerForPushNotificationsAsync() {
+  // 🦊 Si estamos en la web, evitamos ejecutar código nativo de notificaciones
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -31,11 +39,16 @@ export async function registerForPushNotificationsAsync() {
 
 // 2. Programar un recordatorio diario para un hábito
 export async function scheduleHabitReminder(habitName: string, hour: number, minute: number) {
+  // 🦊 Si estamos en la web, salimos silenciosamente para que no explote la consola
+  if (Platform.OS === 'web') {
+    console.log(`[Web] Simulación: Recordatorio para "${habitName}" a las ${hour}:${minute}`);
+    return;
+  }
+
   try {
     const hasPermission = await registerForPushNotificationsAsync();
     if (!hasPermission) return;
 
-    // 🦊 Corrección: Usamos getAllScheduledNotificationsAsync() en lugar de pendingNotificationRequests
     const pendingNotifications = await Notifications.getAllScheduledNotificationsAsync();
     console.log(`Notificaciones programadas actualmente: ${pendingNotifications.length}`);
     
@@ -61,5 +74,6 @@ export async function scheduleHabitReminder(habitName: string, hour: number, min
 
 // 3. Cancelar todas las notificaciones
 export async function cancelAllNotifications() {
+  if (Platform.OS === 'web') return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

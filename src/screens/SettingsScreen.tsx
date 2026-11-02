@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
-import { registerForPushNotificationsAsync, cancelAllNotifications } from '../services/notificationService'; // 👈 Importamos el servicio (Día 16)
+import { registerForPushNotificationsAsync, cancelAllNotifications } from '../services/notificationService'; 
 
-export default function SettingsScreen() {
+// 1. Definimos la interfaz para aceptar la sesión
+interface SettingsScreenProps {
+  session: any;
+  [key: string]: any;
+}
+
+export default function SettingsScreen({ session }: SettingsScreenProps) {
   const { isDarkMode, toggleTheme } = useHabits();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // 👈 Manejador del toggle de notificaciones (Día 16)
   const handleNotificationToggle = async (value: boolean) => {
     setNotificationsEnabled(value);
     if (value) {
@@ -68,7 +73,7 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notificationsEnabled}
-              onValueChange={handleNotificationToggle} // 👈 Conectado al servicio nativo
+              onValueChange={handleNotificationToggle}
               trackColor={{ false: '#334155', true: '#38bdf8' }}
               thumbColor={'#ffffff'}
             />
@@ -98,105 +103,25 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  lightContainer: {
-    backgroundColor: '#f8fafc',
-  },
-  contentContainer: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  sectionContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 12,
-  },
-  lightSubtext: {
-    color: '#334155',
-  },
-  lightText: {
-    color: '#0f172a',
-  },
-  settingCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  lightCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  lightIconContainer: {
-    backgroundColor: '#f1f5f9',
-  },
-  settingTextContainer: {
-    flex: 1,
-  },
-  settingLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  settingSublabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 10,
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 14,
-    color: 'white',
-    marginLeft: 12,
-  },
-  versionText: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  lightContainer: { backgroundColor: '#f8fafc' },
+  contentContainer: { padding: 24, paddingTop: 60, paddingBottom: 40 },
+  header: { marginBottom: 24 },
+  title: { fontSize: 26, fontWeight: 'bold', color: 'white' },
+  subtitle: { fontSize: 14, color: '#94a3b8', marginTop: 4 },
+  sectionContainer: { marginBottom: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: 'white', marginBottom: 12 },
+  lightSubtext: { color: '#334155' },
+  lightText: { color: '#0f172a' },
+  settingCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#334155' },
+  lightCard: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
+  settingRow: { flexDirection: 'row', alignItems: 'center' },
+  settingIconContainer: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  lightIconContainer: { backgroundColor: '#f1f5f9' },
+  settingTextContainer: { flex: 1 },
+  settingLabel: { fontSize: 14, fontWeight: 'bold', color: 'white' },
+  settingSublabel: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#334155', marginBottom: 10 },
+  menuText: { flex: 1, fontSize: 14, color: 'white', marginLeft: 12 },
+  versionText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
 });

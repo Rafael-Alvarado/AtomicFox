@@ -3,11 +3,24 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
 
-export default function ProfileScreen() {
-  const { habits, userLevel, maxSlots, isDarkMode } = useHabits(); // 👈 Añadido isDarkMode aquí
+// 1. Definimos la interfaz para aceptar la sesión
+interface ProfileScreenProps {
+  session: any;
+  [key: string]: any;
+}
+
+export default function ProfileScreen({ session }: ProfileScreenProps) {
+  const { habits = [], userLevel = 1, maxSlots = 3, isDarkMode } = useHabits();
 
   const totalHabits = habits.length;
   const completedTodayCount = habits.filter(h => h.progress === 100).length;
+
+  // 🦊 Extraemos el nombre dinámicamente desde la sesión de Supabase
+  const userName = 
+    session?.user?.user_metadata?.full_name || 
+    session?.user?.user_metadata?.name || 
+    session?.user?.email?.split('@')[0] || 
+    'Operador AtomicFox';
 
   return (
     <ScrollView style={[styles.container, !isDarkMode && styles.lightContainer]} contentContainerStyle={styles.contentContainer}>
@@ -23,7 +36,16 @@ export default function ProfileScreen() {
         <View style={[styles.avatarContainer, !isDarkMode && styles.lightAvatarContainer]}>
           <Ionicons name="paw" size={48} color="#ff6600" />
         </View>
-        <Text style={[styles.userName, !isDarkMode && styles.lightText]}>Operador AtomicFox</Text>
+        
+        {/* 🦊 Mostramos el nombre dinámico del usuario */}
+        <Text style={[styles.userName, !isDarkMode && styles.lightText]}>
+          {userName}
+        </Text>
+
+        <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 12 }, !isDarkMode && { color: '#64748b' }]}>
+          {session?.user?.email || 'Foxy User'}
+        </Text>
+        
         <View style={[styles.badgeContainer, !isDarkMode && styles.lightBadgeContainer]}>
           <Ionicons name="shield-checkmark" size={16} color="#38bdf8" />
           <Text style={styles.badgeText}>Nivel de Usuario: {userLevel}</Text>
@@ -81,152 +103,32 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  lightContainer: {
-    backgroundColor: '#f8fafc',
-  },
-  contentContainer: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  lightText: {
-    color: '#0f172a',
-  },
-  lightSubtext: {
-    color: '#64748b',
-  },
-  profileCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  lightCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#ff6600',
-  },
-  lightAvatarContainer: {
-    backgroundColor: '#f1f5f9',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 8,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  lightBadgeContainer: {
-    backgroundColor: '#f1f5f9',
-  },
-  badgeText: {
-    fontSize: 12,
-    color: '#38bdf8',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  sectionContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 12,
-  },
-  infoCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: 2,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#334155',
-    marginVertical: 8,
-  },
-  lightSeparator: {
-    backgroundColor: '#e2e8f0',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 10,
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 14,
-    color: 'white',
-    marginLeft: 12,
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  lightContainer: { backgroundColor: '#f8fafc' },
+  contentContainer: { padding: 24, paddingTop: 60, paddingBottom: 40 },
+  header: { marginBottom: 24 },
+  title: { fontSize: 26, fontWeight: 'bold', color: 'white' },
+  subtitle: { fontSize: 14, color: '#94a3b8', marginTop: 4 },
+  lightText: { color: '#0f172a' },
+  lightSubtext: { color: '#64748b' },
+  profileCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: '#334155', alignItems: 'center', marginBottom: 24 },
+  lightCard: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
+  avatarContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 2, borderColor: '#ff6600' },
+  lightAvatarContainer: { backgroundColor: '#f1f5f9' },
+  userName: { fontSize: 20, fontWeight: 'bold', color: 'white', marginBottom: 4 },
+  badgeContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  lightBadgeContainer: { backgroundColor: '#f1f5f9' },
+  badgeText: { fontSize: 12, color: '#38bdf8', fontWeight: '600', marginLeft: 6 },
+  sectionContainer: { marginBottom: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: 'white', marginBottom: 12 },
+  infoCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#334155' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  infoIconContainer: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  infoTextContainer: { flex: 1 },
+  infoLabel: { fontSize: 12, color: '#94a3b8' },
+  infoValue: { fontSize: 14, fontWeight: 'bold', color: 'white', marginTop: 2 },
+  separator: { height: 1, backgroundColor: '#334155', marginVertical: 8 },
+  lightSeparator: { backgroundColor: '#e2e8f0' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#334155', marginBottom: 10 },
+  menuText: { flex: 1, fontSize: 14, color: 'white', marginLeft: 12 },
 });

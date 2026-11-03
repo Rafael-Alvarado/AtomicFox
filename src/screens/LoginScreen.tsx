@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
-import { supabase } from '../services/supabase'; // 👈 Importa tu cliente de Supabase
+import { supabase } from '../services/supabase';
+import { GoogleSignin } from '@react-native-google-signin/google-signin'; // 👈 NUEVO: Importar Google Sign-In
 
 export default function LoginScreen({ navigation }: any) {
   const { isDarkMode } = useHabits();
@@ -24,18 +25,80 @@ export default function LoginScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // 🦊 Configurar Google Sign-In al montar el componente
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '115871417181-33r8ssev63an32g03f9075f9gju00s2j.apps.googleusercontent.com', // 👈 Recuerda colocar aquí tu Web Client ID real de Google Cloud
+      scopes: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+    });
+  }, []);
+
+  // --- FLUJO DE GOOGLE SIGN-IN ---
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      
+      // 1. Verificar servicios de Google Play (obligatorio en Android)
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      
+      // 2. Abrir el selector de cuenta de Google
+      const userInfo = await GoogleSignin.signIn();
+      
+      // 3. Obtener el idToken compatible con la versión de la librería
+      const idToken = userInfo.data?.idToken || (userInfo as any).idToken;
+
+      if (!idToken) {
+        throw new Error('No se pudo obtener el ID Token de Google.');
+      }
+
+      // 4. Autenticar en Supabase usando el token de Google
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+
+      if (error) throw error;
+
+      console.log('Sesión iniciada con Google:', data.user?.email);
+    } catch (error: any) {
+      console.error('Error en Google Sign-In:', error);
+      Alert.alert('Error de Autenticación', error.message || 'No se pudo iniciar sesión con Google.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
+    // 1. Validaciones básicas generales
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa el correo y la contraseña.');
       return;
     }
 
-    setLoading(true);
-
     if (isRegistering) {
+      // --- VALIDACIONES EXTRA PARA REGISTRO ---
+      if (!name.trim()) {
+        Alert.alert('Nombre requerido', 'Por favor ingresa tu nombre completo.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        Alert.alert('Las contraseñas no coinciden', 'Asegúrate de que la contraseña y su confirmación sean idénticas.');
+        return;
+      }
+
+      if (password.length < 6) {
+        Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+
+      setLoading(true);
+
       // --- FLUJO DE REGISTRO ---
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -50,15 +113,23 @@ export default function LoginScreen({ navigation }: any) {
       setLoading(false);
 
       if (error) {
-        Alert.alert('Error de Registro', error.message);
+        if (error.message.includes('already registered')) {
+          Alert.alert('Correo registrado', 'Ya existe una cuenta asociada a este correo electrónico.');
+        } else {
+          Alert.alert('Error de Registro', error.message);
+        }
       } else {
         Alert.alert(
-          '¡Cuenta creada!', 
+          '¡Cuenta creada! 🦊', 
           'Revisa tu correo para confirmar tu cuenta o inicia sesión directamente si la confirmación está desactivada.'
         );
         setIsRegistering(false);
+        setPassword('');
+        setConfirmPassword('');
       }
     } else {
+      setLoading(true);
+
       // --- FLUJO DE INICIO DE SESIÓN ---
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -70,8 +141,6 @@ export default function LoginScreen({ navigation }: any) {
       if (error) {
         Alert.alert('Error de Acceso', error.message);
       } else {
-        // ¡Login exitoso! Aquí puedes navegar a tu pantalla principal de hábitos
-        // navigation.replace('Habits');
         console.log('Sesión iniciada con éxito:', data.user);
       }
     }
@@ -114,12 +183,12 @@ export default function LoginScreen({ navigation }: any) {
           
           <View style={{ marginTop: 4, marginBottom: 24, alignItems: 'flex-start' }}>
             <Text style={[{ color: '#94a3b8', fontSize: 13, marginBottom: 6 }, !isDarkMode && { color: '#64748b' }]}>
-              {isRegistering ? '¡Únete à AtomicFox y transforma tus días!' : '¡Comienza a cambiar tus hábitos!'}
+              {isRegistering ? '¡Únete a AtomicFox y transforma tus días!' : '¡Comienza a cambiar tus hábitos!'}
             </Text>
             <View style={{ width: 36, height: 3, backgroundColor: '#ff6600', borderRadius: 2 }} />
           </View>
 
-          {/* Botón Continuar con Google (Próximo paso o mock por ahora) */}
+          {/* Botón Continuar con Google Conectado */}
           <TouchableOpacity 
             style={{ 
               backgroundColor: '#ffffff', 
@@ -133,9 +202,11 @@ export default function LoginScreen({ navigation }: any) {
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.1,
               shadowRadius: 4,
-              elevation: 2
+              elevation: 2,
+              opacity: loading ? 0.7 : 1
             }}
-            onPress={() => Alert.alert('Google Sign-In', 'Pronto configuraremos el flujo OAuth con Supabase.')}
+            onPress={handleGoogleLogin}
+            disabled={loading}
           >
             <View style={{ marginRight: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ fontWeight: 'bold', color: '#ea4335', fontSize: 16 }}>G</Text>
@@ -199,7 +270,7 @@ export default function LoginScreen({ navigation }: any) {
             Contraseña
           </Text>
           <View style={[
-            { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 12, marginBottom: isRegistering ? 24 : 8 },
+            { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 12, marginBottom: 16 },
             !isDarkMode && { backgroundColor: '#ffffff', borderColor: '#cbd5e1' }
           ]}>
             <Ionicons name="lock-closed-outline" size={18} color="#64748b" style={{ marginRight: 8 }} />
@@ -215,6 +286,32 @@ export default function LoginScreen({ navigation }: any) {
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color="#64748b" />
             </TouchableOpacity>
           </View>
+
+          {/* Campo Confirmar Contraseña (Solo en Registro) */}
+          {isRegistering && (
+            <>
+              <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }, !isDarkMode && { color: '#64748b' }]}>
+                Confirmar Contraseña
+              </Text>
+              <View style={[
+                { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 12, marginBottom: 24 },
+                !isDarkMode && { backgroundColor: '#ffffff', borderColor: '#cbd5e1' }
+              ]}>
+                <Ionicons name="shield-checkmark-outline" size={18} color="#64748b" style={{ marginRight: 8 }} />
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  style={[{ flex: 1, color: 'white', paddingVertical: 12 }, !isDarkMode && { color: '#0f172a' }]}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           {!isRegistering && (
             <TouchableOpacity style={{ alignSelf: 'flex-end', marginBottom: 24 }}>
@@ -251,7 +348,11 @@ export default function LoginScreen({ navigation }: any) {
           <Text style={[{ color: '#94a3b8', fontSize: 13 }, !isDarkMode && { color: '#64748b' }]}>
             {isRegistering ? '¿Ya tienes una cuenta? ' : '¿No tienes una cuenta? '}
           </Text>
-          <TouchableOpacity onPress={() => setIsRegistering(!isRegistering)}>
+          <TouchableOpacity onPress={() => {
+            setIsRegistering(!isRegistering);
+            setPassword('');
+            setConfirmPassword('');
+          }}>
             <Text style={{ color: '#ff6600', fontWeight: 'bold', fontSize: 13 }}>
               {isRegistering ? 'Inicia Sesión' : 'Regístrate'}
             </Text>

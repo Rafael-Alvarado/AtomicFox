@@ -12,11 +12,21 @@ if (Platform.OS !== 'web') {
       shouldShowList: true,
     }),
   });
+
+  // 🦊 NUEVO: Configuración del canal de alta prioridad para Android (Crítico para segundo plano)
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'Hábitos Atómicos',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#ff6600',
+      sound: 'default',
+    });
+  }
 }
 
 // 1. Solicitar permisos al usuario
 export async function registerForPushNotificationsAsync() {
-  // 🦊 Si estamos en la web, evitamos ejecutar código nativo de notificaciones
   if (Platform.OS === 'web') {
     return false;
   }
@@ -39,7 +49,6 @@ export async function registerForPushNotificationsAsync() {
 
 // 2. Programar un recordatorio diario para un hábito
 export async function scheduleHabitReminder(habitName: string, hour: number, minute: number) {
-  // 🦊 Si estamos en la web, salimos silenciosamente para que no explote la consola
   if (Platform.OS === 'web') {
     console.log(`[Web] Simulación: Recordatorio para "${habitName}" a las ${hour}:${minute}`);
     return;

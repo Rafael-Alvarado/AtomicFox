@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
 import { registerForPushNotificationsAsync, cancelAllNotifications } from '../services/notificationService'; 
+import { supabase } from '../services/supabase';
 
-// 1. Definimos la interfaz para aceptar la sesión
 interface SettingsScreenProps {
   session: any;
   [key: string]: any;
@@ -26,6 +26,28 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
     }
   };
 
+  const handleFactoryReset = () => {
+    Alert.alert(
+      "⚠️ ¿Reiniciar datos de fábrica?",
+      "Esta acción cerrará tu sesión y limpiará los datos locales de la aplicación.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sí, reiniciar", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await supabase.auth.signOut();
+            } catch (error) {
+              console.error("Error al reiniciar datos:", error);
+              Alert.alert("Error", "No se pudieron restablecer los datos.");
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView style={[styles.container, !isDarkMode && styles.lightContainer]} contentContainerStyle={styles.contentContainer}>
       
@@ -42,11 +64,18 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
         <View style={[styles.settingCard, !isDarkMode && styles.lightCard]}>
           <View style={styles.settingRow}>
             <View style={[styles.settingIconContainer, !isDarkMode && styles.lightIconContainer]}>
-              <Ionicons name="moon-outline" size={20} color="#ff6600" />
+              {/* 🦊 Icono dinámico según el tema */}
+              <Ionicons name={isDarkMode ? "moon-outline" : "sunny-outline"} size={20} color="#ff6600" />
             </View>
             <View style={styles.settingTextContainer}>
-              <Text style={[styles.settingLabel, !isDarkMode && styles.lightText]}>Modo Oscuro Global</Text>
-              <Text style={styles.settingSublabel}>Cambia el tema en toda la aplicación</Text>
+              {/* 🦊 Texto dinámico: Modo Oscuro / Modo Claro */}
+              <Text style={[styles.settingLabel, !isDarkMode && styles.lightText]}>
+                {isDarkMode ? 'Modo Oscuro' : 'Modo Claro'}
+              </Text>
+              {/* 🦊 Subtítulo dinámico */}
+              <Text style={styles.settingSublabel}>
+                {isDarkMode ? 'Activado (Tema nocturno)' : 'Activado (Tema luminoso)'}
+              </Text>
             </View>
             <Switch
               value={isDarkMode}
@@ -91,7 +120,10 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
           <Text style={styles.versionText}>v1.0.0 (Día 16)</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.menuItem, !isDarkMode && styles.lightCard]}>
+        <TouchableOpacity 
+          style={[styles.menuItem, !isDarkMode && styles.lightCard]}
+          onPress={handleFactoryReset}
+        >
           <Ionicons name="trash-outline" size={20} color="#ef4444" />
           <Text style={[styles.menuText, { color: '#ef4444' }]}>Reiniciar Datos de Fábrica</Text>
           <Ionicons name="chevron-forward" size={18} color="#64748b" />

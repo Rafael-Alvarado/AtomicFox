@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useHabits, Habit } from '../context/HabitsContext'; 
 import { scheduleHabitReminder } from '../services/notificationService'; 
 import { supabase } from '../services/supabase';
@@ -14,22 +15,32 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
   const { habits = [], setHabits, userLevel = 1, maxSlots = 3, addHabit, completeHabit, isDarkMode } = useHabits();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null); // 👈 ID del hábito si estamos editando
   const [habitName, setHabitName] = useState('');
   const [habitIdentity, setHabitIdentity] = useState('');
   const [habitTwoMinute, setHabitTwoMinute] = useState('');
   const [habitTime, setHabitTime] = useState('');
 
-  const userName = 
+  const [date, setDate] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const getFirstName = (fullName: string) => {
+    if (!fullName) return 'Foxy';
+    return fullName.trim().split(' ')[0];
+  };
+
+  const rawUserName = 
     session?.user?.user_metadata?.full_name || 
     session?.user?.user_metadata?.name || 
     session?.user?.email?.split('@')[0] || 
     'Foxy';
 
+  const userName = getFirstName(rawUserName);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
-  // 1. CARGAR HÁBITOS DESDE SUPABASE AL ABRIR LA PANTALLA
   useEffect(() => {
     async function fetchUserHabits() {
       if (!session?.user?.id) return;
@@ -84,43 +95,107 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     }
   };
 
-  // 2. GUARDAR HÁBITO (LOCAL + SUPABASE)
+  const formatTime12Hour = (h: number, m: number) => {
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const formattedHours = h % 12 || 12;
+    const formattedMinutes = m < 10 ? `0${m}` : m;
+    return `${formattedHours}:${formattedMinutes} ${ampm}`;
+  };
+
+  const onChangeTime = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
+      const hours = selectedDate.getHours();
+      const minutes = selectedDate.getMinutes();
+      const formatted = formatTime12Hour(hours, minutes);
+      setHabitTime(formatted);
+    }
+  };
+
+  // Abrir modal para CREAR
+  const handleOpenCreateModal = () => {
+    setEditingHabitId(null);
+    setHabitName('');
+    setHabitIdentity('');
+    setHabitTwoMinute('');
+    setHabitTime('');
+    setModalVisible(true);
+  };
+
+  // Abrir modal para EDITAR
+  const handleOpenEditModal = (habit: Habit) => {
+    setEditingHabitId(habit.id);
+    setHabitName(habit.name);
+    setHabitIdentity(habit.identity);
+    setHabitTwoMinute(habit.twoMinute);
+    setHabitTime(habit.time);
+    setModalVisible(true);
+  };
+
+  // 🦊 GUARDAR O ACTUALIZAR HÁBITO
   const handleSaveHabit = async () => {
     if (!habitName.trim()) return;
 
-    const finalTime = habitTime || '20:00';
+    const finalTime = habitTime || '8:00 PM';
 
-    const success = addHabit({
-      name: habitName,
-      identity: habitIdentity || 'Hábito atómico',
-      twoMinute: habitTwoMinute || 'Versión rápida',
-      time: finalTime,
-    });
+    if (editingHabitId) {
+      // MODO EDICIÓN
+      const updatedHabits = habits.map(h => h.id === editingHabitId ? {
+        ...h,
+        name: habitName,
+        identity: habitIdentity || 'Hábito atómico',
+        twoMinute: habitTwoMinute || 'Versión rápida',
+        time: finalTime,
+      } : h);
+      setHabits(updatedHabits);
 
-    if (!success) {
-      Alert.alert(
-        "Límite de Slots Alcanzado",
-        `Tu Nivel actual (${userLevel}) solo permite tener un máximo de ${maxSlots} hábitos activos. ¡Sube de nivel completando tus rachas para desbloquear más espacios!`
-      );
-      return; 
-    }
+      if (session?.user?.id) {
+        const { error } = await supabase
+          .from('habits')
+          .update({
+            title: habitName,
+            category: habitIdentity || 'Hábito atómico',
+            two_minute: habitTwoMinute || 'Versión rápida',
+            time: finalTime,
+          })
+          .eq('id', editingHabitId)
+          .eq('user_id', session.user.id);
 
-    if (session?.user?.id) {
-      const { error } = await supabase.from('habits').insert([
-        {
-          title: habitName,
-          category: habitIdentity || 'Hábito atómico',
-          two_minute: habitTwoMinute || 'Versión rápida',
-          time: finalTime,
-          progress: 0,
-          streak_count: 0,
-          streak: '0/7 días',
-          user_id: session.user.id,
-        }
-      ]);
+        if (error) console.error('Error al actualizar en Supabase:', error.message);
+      }
+    } else {
+      // MODO CREACIÓN
+      const success = addHabit({
+        name: habitName,
+        identity: habitIdentity || 'Hábito atómico',
+        twoMinute: habitTwoMinute || 'Versión rápida',
+        time: finalTime,
+      });
 
-      if (error) {
-        console.error('Error al guardar hábito en Supabase:', error.message);
+      if (!success) {
+        Alert.alert(
+          "Límite de Slots Alcanzado",
+          `Tu Nivel actual (${userLevel}) solo permite tener un máximo de ${maxSlots} hábitos activos. ¡Sube de nivel completando tus rachas para desbloquear más espacios!`
+        );
+        return; 
+      }
+
+      if (session?.user?.id) {
+        const { error } = await supabase.from('habits').insert([
+          {
+            title: habitName,
+            category: habitIdentity || 'Hábito atómico',
+            two_minute: habitTwoMinute || 'Versión rápida',
+            time: finalTime,
+            progress: 0,
+            streak_count: 0,
+            streak: '0/7 días',
+            user_id: session.user.id,
+          }
+        ]);
+
+        if (error) console.error('Error al guardar hábito en Supabase:', error.message);
       }
     }
 
@@ -128,20 +203,44 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     scheduleHabitReminder(habitName, hours, minutes);
 
     setModalVisible(false);
-    setHabitName('');
-    setHabitIdentity('');
-    setHabitTwoMinute('');
-    setHabitTime('');
   };
 
-  // 3. MARCAR HÁBITO COMO COMPLETADO (CHECK / 2 MINUTOS)
-  const handleCompleteHabit = async (habitId: string, currentProgress: number) => {
-    if (currentProgress === 100) return; // Si ya está al 100%, no hacemos nada
+  // 🦊 ELIMINAR HÁBITO
+  const handleDeleteHabit = (habitId: string, habitTitle: string) => {
+    Alert.alert(
+      "Eliminar Hábito",
+      `¿Estás seguro de que deseas eliminar "${habitTitle}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Eliminar", 
+          style: "destructive", 
+          onPress: async () => {
+            // Eliminar localmente filtrando el state
+            const filteredHabits = habits.filter(h => h.id !== habitId);
+            setHabits(filteredHabits);
 
-    // Actualizamos localmente en el contexto
+            // Eliminar en Supabase
+            if (session?.user?.id) {
+              const { error } = await supabase
+                .from('habits')
+                .delete()
+                .eq('id', habitId)
+                .eq('user_id', session.user.id);
+
+              if (error) console.error('Error al eliminar en Supabase:', error.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCompleteHabit = async (habitId: string, currentProgress: number) => {
+    if (currentProgress === 100) return; 
+
     completeHabit(habitId);
 
-    // Actualizamos en la base de datos de Supabase
     if (session?.user?.id) {
       const targetHabit = habits.find(h => h.id === habitId);
       const newStreakCount = (targetHabit?.streakCount || 0) + 1;
@@ -156,16 +255,14 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
         .eq('id', habitId)
         .eq('user_id', session.user.id);
 
-      if (error) {
-        console.error('Error al actualizar el hábito en Supabase:', error.message);
-      }
+      if (error) console.error('Error al actualizar el hábito en Supabase:', error.message);
     }
   };
 
   return (
     <View style={[{ flex: 1, backgroundColor: '#0f172a', paddingTop: 40 }, !isDarkMode && { backgroundColor: '#f8fafc' }]}>
       
-      {/* Header con Insignia de Nivel, Slots y Botón de Cerrar Sesión */}
+      {/* Header */}
       <View style={{ paddingHorizontal: 24, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -191,7 +288,7 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={() => setModalVisible(true)}
+            onPress={handleOpenCreateModal}
             style={{ backgroundColor: '#ff6600', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
           >
             <Ionicons name="add" size={18} color="white" />
@@ -224,7 +321,7 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
                   </View>
                 </View>
 
-                {/* BOTÓN PRINCIPAL DE CHECK (Superior) */}
+                {/* BOTÓN PRINCIPAL DE CHECK */}
                 <TouchableOpacity 
                   onPress={() => handleCompleteHabit(habit.id, habit.progress)}
                   style={[
@@ -255,10 +352,9 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
                 </View>
               </View>
 
+              {/* BARRA INFERIOR: BOTÓN 2 MINUTOS + ACCIONES (EDITAR / ELIMINAR) */}
               <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, borderTopWidth: 1, borderTopColor: '#334155', paddingTop: 8 }, !isDarkMode && { borderTopColor: '#e2e8f0' }]}>
-                <Text style={[{ color: '#94a3b8', fontSize: 11, flex: 1, marginRight: 8 }, !isDarkMode && { color: '#64748b' }]} numberOfLines={1}>Fácil: {habit.twoMinute}</Text>
                 
-                {/* BOTÓN SECUNDARIO DE 2 MINUTOS (Emergencia) */}
                 <TouchableOpacity 
                   onPress={() => handleCompleteHabit(habit.id, habit.progress)}
                   style={[
@@ -270,6 +366,24 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
                     {isCompleted ? '✅ ¡Completado!' : '⚡ 2 Min (Emergencia)'}
                   </Text>
                 </TouchableOpacity>
+
+                {/* 🦊 BOTONES DE EDITAR Y ELIMINAR */}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity 
+                    onPress={() => handleOpenEditModal(habit)}
+                    style={{ padding: 6, marginRight: 4 }}
+                  >
+                    <Ionicons name="create-outline" size={18} color="#38bdf8" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={() => handleDeleteHabit(habit.id, habit.name)}
+                    style={{ padding: 6 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+
               </View>
 
             </View>
@@ -277,7 +391,7 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
         })}
       </ScrollView>
 
-      {/* MODAL PARA CREAR NUEVO HÁBITO */}
+      {/* MODAL PARA CREAR O EDITAR HÁBITO */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -291,7 +405,9 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
           <View style={[{ backgroundColor: '#1e293b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderTopColor: '#334155' }, !isDarkMode && { backgroundColor: '#ffffff', borderTopColor: '#e2e8f0' }]}>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[{ color: 'white', fontSize: 20, fontWeight: 'bold' }, !isDarkMode && { color: '#0f172a' }]}>Nuevo Hábito</Text>
+              <Text style={[{ color: 'white', fontSize: 20, fontWeight: 'bold' }, !isDarkMode && { color: '#0f172a' }]}>
+                {editingHabitId ? 'Editar Hábito' : 'Nuevo Hábito'}
+              </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#94a3b8" />
               </TouchableOpacity>
@@ -325,19 +441,37 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
             />
 
             <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }, !isDarkMode && { color: '#64748b' }]}>Hora Programada</Text>
-            <TextInput
-              placeholder="Ej. 8:00 PM"
-              placeholderTextColor="#64748b"
-              value={habitTime}
-              onChangeText={setHabitTime}
-              style={[{ backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: '#334155' }, !isDarkMode && { backgroundColor: '#f8fafc', color: '#0f172a', borderColor: '#cbd5e1' }]}
-            />
+            
+            <TouchableOpacity 
+              onPress={() => setShowTimePicker(true)}
+              style={[
+                { backgroundColor: '#0f172a', padding: 12, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: '#334155', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+                !isDarkMode && { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }
+              ]}
+            >
+              <Text style={[{ color: habitTime ? 'white' : '#64748b', fontSize: 14 }, !isDarkMode && { color: habitTime ? '#0f172a' : '#64748b' }]}>
+                {habitTime || 'Seleccionar hora (Ej. 8:00 PM)'}
+              </Text>
+              <Ionicons name="time-outline" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+
+            {showTimePicker && (
+              <DateTimePicker
+                value={date}
+                mode="time"
+                is24Hour={false}
+                display="default"
+                onChange={onChangeTime}
+              />
+            )}
 
             <TouchableOpacity 
               onPress={handleSaveHabit}
               style={{ backgroundColor: '#ff6600', padding: 16, borderRadius: 12, alignItems: 'center' }}
             >
-              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Crear Hábito</Text>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
+                {editingHabitId ? 'Guardar Cambios' : 'Crear Hábito'}
+              </Text>
             </TouchableOpacity>
 
           </View>

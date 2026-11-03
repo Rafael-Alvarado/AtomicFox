@@ -57,16 +57,18 @@ export default function AppNavigator({ session }: AppNavigatorProps) {
         <Tab.Screen name="Estadísticas">
           {(props) => <StatsScreen {...props} session={session} />}
         </Tab.Screen>
+
+        {/* 4. Mi Perfil con sesión */}
+        <Tab.Screen name="Mi Perfil">
+          {(props) => <ProfileScreen {...props} session={session} />}
+        </Tab.Screen>
         
         {/* 3. Configuración con sesión */}
         <Tab.Screen name="Configuración">
           {(props) => <SettingsScreen {...props} session={session} />}
         </Tab.Screen>
         
-        {/* 4. Mi Perfil con sesión */}
-        <Tab.Screen name="Mi Perfil">
-          {(props) => <ProfileScreen {...props} session={session} />}
-        </Tab.Screen>
+        
       </Tab.Navigator>
     </NavigationContainer>
   );

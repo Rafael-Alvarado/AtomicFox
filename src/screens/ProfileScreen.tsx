@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabits } from '../context/HabitsContext';
+import { supabase } from '../services/supabase';
 
-// 1. Definimos la interfaz para aceptar la sesión
 interface ProfileScreenProps {
   session: any;
   [key: string]: any;
@@ -12,15 +12,107 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ session }: ProfileScreenProps) {
   const { habits = [], userLevel = 1, maxSlots = 3, isDarkMode } = useHabits();
 
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [emailModalVisible, setEmailModalVisible] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+
+  const [newFullName, setNewFullName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const totalHabits = habits.length;
   const completedTodayCount = habits.filter(h => h.progress === 100).length;
 
-  // 🦊 Extraemos el nombre dinámicamente desde la sesión de Supabase
-  const userName = 
+  const rawUserName = 
     session?.user?.user_metadata?.full_name || 
     session?.user?.user_metadata?.name || 
     session?.user?.email?.split('@')[0] || 
     'Operador AtomicFox';
+
+  const userName = rawUserName;
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro de que deseas salir de AtomicFox?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Salir", 
+          style: "destructive", 
+          onPress: async () => {
+            await supabase.auth.signOut();
+          } 
+        }
+      ]
+    );
+  };
+
+  const handleUpdateName = async () => {
+    if (!newFullName.trim()) {
+      Alert.alert("Error", "El nombre no puede estar vacío.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: newFullName.trim() }
+    });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      Alert.alert("¡Éxito!", "Nombre de usuario actualizado correctamente.");
+      setEditModalVisible(false);
+      setNewFullName('');
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      Alert.alert("Error", "Ingresa un correo electrónico válido.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      Alert.alert("¡Correo actualizado!", "Verifica tu nueva bandeja de entrada si Supabase requiere confirmación.");
+      setEmailModalVisible(false);
+      setNewEmail('');
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      Alert.alert("¡Éxito!", "Tu contraseña ha sido actualizada correctamente.");
+      setPasswordModalVisible(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, !isDarkMode && styles.lightContainer]} contentContainerStyle={styles.contentContainer}>
@@ -28,7 +120,7 @@ export default function ProfileScreen({ session }: ProfileScreenProps) {
       {/* Encabezado del Perfil */}
       <View style={styles.header}>
         <Text style={[styles.title, !isDarkMode && styles.lightText]}>Mi Perfil</Text>
-        <Text style={[styles.subtitle, !isDarkMode && styles.lightSubtext]}>Información de tu cuenta y progreso</Text>
+        <Text style={[styles.subtitle, !isDarkMode && styles.lightSubtext]}>Información de tu cuenta y seguridad</Text>
       </View>
 
       {/* Tarjeta de Avatar y Rango */}
@@ -37,7 +129,6 @@ export default function ProfileScreen({ session }: ProfileScreenProps) {
           <Ionicons name="paw" size={48} color="#ff6600" />
         </View>
         
-        {/* 🦊 Mostramos el nombre dinámico del usuario */}
         <Text style={[styles.userName, !isDarkMode && styles.lightText]}>
           {userName}
         </Text>
@@ -81,22 +172,134 @@ export default function ProfileScreen({ session }: ProfileScreenProps) {
         </View>
       </View>
 
-      {/* Opciones de la Cuenta */}
+      {/* Opciones de Seguridad y Cuenta */}
       <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, !isDarkMode && styles.lightText]}>Ajustes y Sistema</Text>
+        <Text style={[styles.sectionTitle, !isDarkMode && styles.lightText]}>Seguridad y Cuenta</Text>
         
-        <TouchableOpacity style={[styles.menuItem, !isDarkMode && styles.lightCard]}>
-          <Ionicons name="person-outline" size={20} color="#94a3b8" />
+        {/* Editar Nombre */}
+        <TouchableOpacity 
+          style={[styles.menuItem, !isDarkMode && styles.lightCard]}
+          onPress={() => {
+            setNewFullName(rawUserName);
+            setEditModalVisible(true);
+          }}
+        >
+          <Ionicons name="person-outline" size={20} color="#38bdf8" />
           <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Editar Nombre de Usuario</Text>
           <Ionicons name="chevron-forward" size={18} color="#64748b" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.menuItem, !isDarkMode && styles.lightCard]}>
-          <Ionicons name="shield-outline" size={20} color="#94a3b8" />
-          <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Privacidad y Datos</Text>
+        {/* Cambiar Correo */}
+        <TouchableOpacity 
+          style={[styles.menuItem, !isDarkMode && styles.lightCard]}
+          onPress={() => setEmailModalVisible(true)}
+        >
+          <Ionicons name="mail-outline" size={20} color="#38bdf8" />
+          <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Actualizar Correo Electrónico</Text>
+          <Ionicons name="chevron-forward" size={18} color="#64748b" />
+        </TouchableOpacity>
+
+        {/* Cambiar Contraseña */}
+        <TouchableOpacity 
+          style={[styles.menuItem, !isDarkMode && styles.lightCard]}
+          onPress={() => setPasswordModalVisible(true)}
+        >
+          <Ionicons name="lock-closed-outline" size={20} color="#38bdf8" />
+          <Text style={[styles.menuText, !isDarkMode && styles.lightText]}>Cambiar Contraseña</Text>
+          <Ionicons name="chevron-forward" size={18} color="#64748b" />
+        </TouchableOpacity>
+
+        {/* Cerrar Sesión */}
+        <TouchableOpacity 
+          style={[styles.menuItem, !isDarkMode && styles.lightCard, { borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+          <Text style={[styles.menuText, { color: '#ef4444' }]}>Cerrar Sesión</Text>
           <Ionicons name="chevron-forward" size={18} color="#64748b" />
         </TouchableOpacity>
       </View>
+
+      {/* MODAL EDITAR NOMBRE */}
+      <Modal animationType="slide" transparent={true} visible={editModalVisible} onRequestClose={() => setEditModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <View style={[{ backgroundColor: '#1e293b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderTopColor: '#334155' }, !isDarkMode && { backgroundColor: '#ffffff', borderTopColor: '#e2e8f0' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[{ color: 'white', fontSize: 20, fontWeight: 'bold' }, !isDarkMode && { color: '#0f172a' }]}>Editar Nombre</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="close" size={24} color="#94a3b8" /></TouchableOpacity>
+            </View>
+            <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }, !isDarkMode && { color: '#64748b' }]}>Nuevo Nombre Completo</Text>
+            <TextInput
+              placeholder="Ej. Rafael Pérez"
+              placeholderTextColor="#64748b"
+              value={newFullName}
+              onChangeText={setNewFullName}
+              style={[{ backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: '#334155' }, !isDarkMode && { backgroundColor: '#f8fafc', color: '#0f172a', borderColor: '#cbd5e1' }]}
+            />
+            <TouchableOpacity onPress={handleUpdateName} disabled={loading} style={{ backgroundColor: '#ff6600', padding: 16, borderRadius: 12, alignItems: 'center', opacity: loading ? 0.7 : 1 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{loading ? 'Guardando...' : 'Guardar Cambios'}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* MODAL ACTUALIZAR CORREO */}
+      <Modal animationType="slide" transparent={true} visible={emailModalVisible} onRequestClose={() => setEmailModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <View style={[{ backgroundColor: '#1e293b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderTopColor: '#334155' }, !isDarkMode && { backgroundColor: '#ffffff', borderTopColor: '#e2e8f0' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[{ color: 'white', fontSize: 20, fontWeight: 'bold' }, !isDarkMode && { color: '#0f172a' }]}>Actualizar Correo</Text>
+              <TouchableOpacity onPress={() => setEmailModalVisible(false)}><Ionicons name="close" size={24} color="#94a3b8" /></TouchableOpacity>
+            </View>
+            <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }, !isDarkMode && { color: '#64748b' }]}>Nuevo Correo Electrónico</Text>
+            <TextInput
+              placeholder="tucorreo@email.com"
+              placeholderTextColor="#64748b"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              style={[{ backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: '#334155' }, !isDarkMode && { backgroundColor: '#f8fafc', color: '#0f172a', borderColor: '#cbd5e1' }]}
+            />
+            <TouchableOpacity onPress={handleUpdateEmail} disabled={loading} style={{ backgroundColor: '#ff6600', padding: 16, borderRadius: 12, alignItems: 'center', opacity: loading ? 0.7 : 1 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{loading ? 'Actualizando...' : 'Actualizar Correo'}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* MODAL CAMBIAR CONTRASEÑA */}
+      <Modal animationType="slide" transparent={true} visible={passwordModalVisible} onRequestClose={() => setPasswordModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <View style={[{ backgroundColor: '#1e293b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderTopColor: '#334155' }, !isDarkMode && { backgroundColor: '#ffffff', borderTopColor: '#e2e8f0' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[{ color: 'white', fontSize: 20, fontWeight: 'bold' }, !isDarkMode && { color: '#0f172a' }]}>Cambiar Contraseña</Text>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)}><Ionicons name="close" size={24} color="#94a3b8" /></TouchableOpacity>
+            </View>
+            <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }, !isDarkMode && { color: '#64748b' }]}>Nueva Contraseña (mínimo 6 caracteres)</Text>
+            <TextInput
+              placeholder="••••••••"
+              placeholderTextColor="#64748b"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              style={[{ backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 12, marginBottom: 14, borderWidth: 1, borderColor: '#334155' }, !isDarkMode && { backgroundColor: '#f8fafc', color: '#0f172a', borderColor: '#cbd5e1' }]}
+            />
+            <Text style={[{ color: '#94a3b8', fontSize: 12, marginBottom: 4 }, !isDarkMode && { color: '#64748b' }]}>Confirmar Nueva Contraseña</Text>
+            <TextInput
+              placeholder="••••••••"
+              placeholderTextColor="#64748b"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              style={[{ backgroundColor: '#0f172a', color: 'white', padding: 12, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: '#334155' }, !isDarkMode && { backgroundColor: '#f8fafc', color: '#0f172a', borderColor: '#cbd5e1' }]}
+            />
+            <TouchableOpacity onPress={handleUpdatePassword} disabled={loading} style={{ backgroundColor: '#ff6600', padding: 16, borderRadius: 12, alignItems: 'center', opacity: loading ? 0.7 : 1 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{loading ? 'Actualizando...' : 'Cambiar Contraseña'}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
     </ScrollView>
   );

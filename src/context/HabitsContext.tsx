@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native'; // 👈 1. Importar AppState
+import { supabase } from '../services/supabase'; // 👈 2. Importar supabase para actualizar la nube
 
 export interface Habit {
   id: string;
@@ -9,7 +11,7 @@ export interface Habit {
   time: string;
   progress: number;
   streak: string;
-  streakCount?: number; // 👈 Opcional
+  streakCount?: number;
 }
 
 interface HabitsContextData {
@@ -22,6 +24,7 @@ interface HabitsContextData {
   toggleTheme: () => void; 
   addHabit: (habit: Omit<Habit, 'id' | 'progress' | 'streak' | 'streakCount'>) => boolean;
   completeHabit: (id: string) => void;
+  resetFactoryData: () => Promise<void>;
 }
 
 const HabitsContext = createContext<HabitsContextData>({} as HabitsContextData);
@@ -37,7 +40,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const maxSlots = userLevel === 1 ? 2 : 5;
   const [habits, setHabits] = useState<Habit[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<Record<string, number>>({});
-  
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   const toggleTheme = async () => {
@@ -69,16 +71,72 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // 🦊 Función centralizada para verificar y reiniciar el día
+  const checkAndResetDay = async (currentHabits: Habit[]) => {
+    try {
+      const storedDate = await AsyncStorage.getItem(STORAGE_KEY_DATE);
+      const currentDate = new Date().toDateString();
+
+      if (storedDate && storedDate !== currentDate) {
+        // Es un nuevo día: Reiniciamos el progreso localmente a 0
+        const resetHabits = currentHabits.map((habit) => ({
+          ...habit,
+          progress: 0,
+        }));
+
+        setHabits(resetHabits);
+        await AsyncStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(resetHabits));
+        await AsyncStorage.setItem(STORAGE_KEY_DATE, currentDate);
+
+        // Opcional: Actualizar también en Supabase para que el progreso del día comience en 0 en la nube
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          await supabase
+            .from('habits')
+            .update({ progress: 0 })
+            .eq('user_id', session.user.id);
+        }
+
+        console.log("¡Nuevo día detectado! Hábitos reiniciados a 0 para el registro diario.");
+      } else if (!storedDate) {
+        await AsyncStorage.setItem(STORAGE_KEY_DATE, currentDate);
+      }
+    } catch (error) {
+      console.error("Error al verificar el cambio de día:", error);
+    }
+  };
+
+  // Función para restablecer los datos de fábrica (local y Supabase)
+    const resetFactoryData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          await supabase
+            .from('habits')
+            .delete()
+            .eq('user_id', session.user.id);
+        }
+
+        await AsyncStorage.clear();
+        setHabits([]);
+        setUserLevel(1);
+        setWeeklyHistory({});
+        setIsDarkMode(true);
+        await AsyncStorage.setItem(STORAGE_KEY_DATE, new Date().toDateString());
+
+        console.log("¡Datos de fábrica reiniciados correctamente!");
+      } catch (error) {
+        console.error("Error al reiniciar datos de fábrica:", error);
+      }
+    };
+
   useEffect(() => {
     const loadStoredData = async () => {
       try {
         const storedHabits = await AsyncStorage.getItem(STORAGE_KEY_HABITS);
         const storedLevel = await AsyncStorage.getItem(STORAGE_KEY_LEVEL);
-        const storedDate = await AsyncStorage.getItem(STORAGE_KEY_DATE);
         const storedHistory = await AsyncStorage.getItem(STORAGE_KEY_HISTORY);
         const storedTheme = await AsyncStorage.getItem(STORAGE_KEY_THEME);
-
-        const currentDate = new Date().toDateString();
 
         if (storedLevel) {
           setUserLevel(JSON.parse(storedLevel));
@@ -94,19 +152,12 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         if (storedHabits) {
           let parsedHabits: Habit[] = JSON.parse(storedHabits);
-
-          if (storedDate !== currentDate) {
-            parsedHabits = parsedHabits.map((habit) => ({
-              ...habit,
-              progress: 0,
-            }));
-            await AsyncStorage.setItem(STORAGE_KEY_DATE, currentDate);
-          }
-
           setHabits(parsedHabits);
+          // Verificar si cambió el día al cargar
+          await checkAndResetDay(parsedHabits);
         } else {
           setHabits([]);
-          await AsyncStorage.setItem(STORAGE_KEY_DATE, currentDate);
+          await AsyncStorage.setItem(STORAGE_KEY_DATE, new Date().toDateString());
         }
       } catch (error) {
         console.error("Error al cargar los datos:", error);
@@ -114,6 +165,20 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     loadStoredData();
+
+    // 🦊 3. Escuchar cuando la app pasa a primer plano (ej. al despertar el cel al día siguiente)
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        const storedHabits = await AsyncStorage.getItem(STORAGE_KEY_HABITS);
+        if (storedHabits) {
+          checkAndResetDay(JSON.parse(storedHabits));
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -156,7 +221,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (habit.id === id) {
           if (habit.progress === 100) return habit;
 
-          // 🦊 Protegemos la suma por si streakCount es undefined
           const nextStreakCount = (habit.streakCount || 0) + 1;
           return {
             ...habit,
@@ -168,7 +232,6 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return habit;
       });
 
-      // 🦊 Protegemos la lectura de streakCount en Math.max
       const maxStreak = Math.max(...updatedHabits.map((h) => h.streakCount || 0), 0);
       if (maxStreak >= 7 && userLevel < 2) {
         setUserLevel(2);
@@ -180,7 +243,7 @@ export const HabitsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <HabitsContext.Provider value={{ habits, setHabits, userLevel, maxSlots, weeklyHistory, isDarkMode, toggleTheme, addHabit, completeHabit }}>
+    <HabitsContext.Provider value={{ habits, setHabits, userLevel, maxSlots, weeklyHistory, isDarkMode, toggleTheme, addHabit, completeHabit , resetFactoryData }}>
       {children}
     </HabitsContext.Provider>
   );

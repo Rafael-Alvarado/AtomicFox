@@ -11,7 +11,8 @@ interface SettingsScreenProps {
 }
 
 export default function SettingsScreen({ session }: SettingsScreenProps) {
-  const { isDarkMode, toggleTheme } = useHabits();
+  // 🦊 1. Extraemos resetFactoryData del contexto
+  const { isDarkMode, toggleTheme, resetFactoryData } = useHabits();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const handleNotificationToggle = async (value: boolean) => {
@@ -29,7 +30,7 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
   const handleFactoryReset = () => {
     Alert.alert(
       "⚠️ ¿Reiniciar datos de fábrica?",
-      "Esta acción cerrará tu sesión y limpiará los datos locales de la aplicación.",
+      "Esta acción borrará todos tus hábitos, estadísticas locales y cerrará tu sesión.",
       [
         { text: "Cancelar", style: "cancel" },
         { 
@@ -37,6 +38,9 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
           style: "destructive", 
           onPress: async () => {
             try {
+              // 🦊 2. Ejecutamos el reseteo completo (AsyncStorage + Supabase + Estados)
+              await resetFactoryData();
+              // 3. Cerramos sesión en Supabase
               await supabase.auth.signOut();
             } catch (error) {
               console.error("Error al reiniciar datos:", error);
@@ -64,15 +68,12 @@ export default function SettingsScreen({ session }: SettingsScreenProps) {
         <View style={[styles.settingCard, !isDarkMode && styles.lightCard]}>
           <View style={styles.settingRow}>
             <View style={[styles.settingIconContainer, !isDarkMode && styles.lightIconContainer]}>
-              {/* 🦊 Icono dinámico según el tema */}
               <Ionicons name={isDarkMode ? "moon-outline" : "sunny-outline"} size={20} color="#ff6600" />
             </View>
             <View style={styles.settingTextContainer}>
-              {/* 🦊 Texto dinámico: Modo Oscuro / Modo Claro */}
               <Text style={[styles.settingLabel, !isDarkMode && styles.lightText]}>
                 {isDarkMode ? 'Modo Oscuro' : 'Modo Claro'}
               </Text>
-              {/* 🦊 Subtítulo dinámico */}
               <Text style={styles.settingSublabel}>
                 {isDarkMode ? 'Activado (Tema nocturno)' : 'Activado (Tema luminoso)'}
               </Text>

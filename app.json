@@ -10,7 +10,7 @@
       "supportsTablet": true
     },
     "android": {
-        "package": "com.raphcode.atomicfox",
+      "package": "com.raphcode.atomicfox",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,6 +25,11 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "@react-native-google-signin/google-signin"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "96943ec8-c1b5-40b5-870e-8818de4edbd5"
+      }
+    }
   }
 }

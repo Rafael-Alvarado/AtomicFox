@@ -33,7 +33,7 @@ export default function LoginScreen({ navigation }: any) {
   // 🦊 Configurar Google Sign-In al montar el componente
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '115871417181-33r8ssev63an32g03f9075f9gju00s2j.apps.googleusercontent.com', // 👈 Recuerda colocar aquí tu Web Client ID real de Google Cloud
+      webClientId: '115871417181-cdiatcjd8fhieitk19eoam2tpk2i079c.apps.googleusercontent.com', // 👈 Recuerda colocar aquí tu Web Client ID real de Google Cloud
       scopes: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
     });
   }, []);

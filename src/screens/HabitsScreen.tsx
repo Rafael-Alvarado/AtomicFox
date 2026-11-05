@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useHabits, Habit } from '../context/HabitsContext'; 
 import { scheduleHabitReminder } from '../services/notificationService'; 
 import { supabase } from '../services/supabase';
+import OnboardingScreen from '../screens/OnboardingScreen'; // 👈 1. Importar el Onboarding del Día 18
 
 interface HabitsScreenProps {
   session: any;
@@ -15,7 +16,7 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
   const { habits = [], setHabits, userLevel = 1, maxSlots = 3, addHabit, completeHabit, isDarkMode } = useHabits();
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingHabitId, setEditingHabitId] = useState<string | null>(null); // 👈 ID del hábito si estamos editando
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [habitName, setHabitName] = useState('');
   const [habitIdentity, setHabitIdentity] = useState('');
   const [habitTwoMinute, setHabitTwoMinute] = useState('');
@@ -23,6 +24,9 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
 
   const [date, setDate] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // 🦊 Estado local para controlar si el usuario ya omitió o completó el onboarding en esta sesión
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false);
 
   const getFirstName = (fullName: string) => {
     if (!fullName) return 'Foxy';
@@ -41,36 +45,12 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     await supabase.auth.signOut();
   };
 
-  useEffect(() => {
-    async function fetchUserHabits() {
-      if (!session?.user?.id) return;
+  // 🦊 2. VALIDACIÓN DEL DÍA 18: Si no hay hábitos y no se ha completado el onboarding, mostramos la guía interactiva
+  if (habits.length === 0 && !isOnboardingCompleted) {
+    return <OnboardingScreen onFinish={() => setIsOnboardingCompleted(true)} />;
+  }
 
-      const { data, error } = await supabase
-        .from('habits')
-        .select('*')
-        .eq('user_id', session.user.id);
-
-      if (error) {
-        console.error('Error al cargar hábitos desde Supabase:', error.message);
-      } else if (data && setHabits) {
-        const formattedHabits: Habit[] = data.map((item: any) => ({
-          id: item.id.toString(),
-          name: item.title || item.name,
-          identity: item.category || item.identity || 'Hábito atómico',
-          twoMinute: item.two_minute || 'Versión rápida',
-          time: item.time || '20:00',
-          progress: item.progress || 0,
-          streak: item.streak || '0/7 días',
-          streakCount: item.streak_count || 0,
-        }));
-
-        setHabits(formattedHabits);
-      }
-    }
-
-    fetchUserHabits();
-  }, [session]);
-
+  // ... (El resto de tus useEffect, funciones de crear, editar, eliminar y fechas se mantienen exactamente igual)
   const parseTimeStringToHoursMinutes = (timeStr: string) => {
     try {
       const cleanTime = timeStr.trim().toUpperCase();
@@ -113,7 +93,6 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     }
   };
 
-  // Abrir modal para CREAR
   const handleOpenCreateModal = () => {
     setEditingHabitId(null);
     setHabitName('');
@@ -123,7 +102,6 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     setModalVisible(true);
   };
 
-  // Abrir modal para EDITAR
   const handleOpenEditModal = (habit: Habit) => {
     setEditingHabitId(habit.id);
     setHabitName(habit.name);
@@ -133,14 +111,12 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     setModalVisible(true);
   };
 
-  // 🦊 GUARDAR O ACTUALIZAR HÁBITO
   const handleSaveHabit = async () => {
     if (!habitName.trim()) return;
 
     const finalTime = habitTime || '8:00 PM';
 
     if (editingHabitId) {
-      // MODO EDICIÓN
       const updatedHabits = habits.map(h => h.id === editingHabitId ? {
         ...h,
         name: habitName,
@@ -165,7 +141,6 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
         if (error) console.error('Error al actualizar en Supabase:', error.message);
       }
     } else {
-      // MODO CREACIÓN
       const success = addHabit({
         name: habitName,
         identity: habitIdentity || 'Hábito atómico',
@@ -205,7 +180,6 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
     setModalVisible(false);
   };
 
-  // 🦊 ELIMINAR HÁBITO
   const handleDeleteHabit = (habitId: string, habitTitle: string) => {
     Alert.alert(
       "Eliminar Hábito",
@@ -216,11 +190,9 @@ export default function HabitsScreen({ session }: HabitsScreenProps) {
           text: "Eliminar", 
           style: "destructive", 
           onPress: async () => {
-            // Eliminar localmente filtrando el state
             const filteredHabits = habits.filter(h => h.id !== habitId);
             setHabits(filteredHabits);
 
-            // Eliminar en Supabase
             if (session?.user?.id) {
               const { error } = await supabase
                 .from('habits')
